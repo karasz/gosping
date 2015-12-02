@@ -1,11 +1,36 @@
 package main
 
 import (
+	"fmt"
 	"github.com/codegangsta/cli"
 	"os"
 )
 
+var (
+	appName         = "gosping"
+	appHelpTemplate = `
+NAME:
+	{{.Name}} - {{.Usage}}
+
+USAGE:
+	{{.Name}} [options] x@y.z [@server]
+	Where: x@y.z  is the address that will receive e-mail
+	and server is the address to connect to (optional)
+
+VERSION:
+	{{.Version}}
+
+OPTIONS:
+	{{range .Flags}}{{.}}
+	{{end}}
+
+If no @server is specified, {{.Name}} will try to find
+the recipient domain's MX record, falling back on A/AAAA records.
+`
+)
+
 func main() {
+	cli.AppHelpTemplate = appHelpTemplate
 	app := cli.NewApp()
 	app.Flags = []cli.Flag{
 		cli.BoolFlag{
@@ -52,15 +77,13 @@ func main() {
 			Usage: "sender; Sender address [default: empty]",
 			Value: "",
 		},
-		cli.StringFlag{
+		cli.BoolFlag{
 			Name:  "rate,r",
 			Usage: "rate; Show message rate per second",
-			Value: "",
 		},
-		cli.StringFlag{
+		cli.BoolTFlag{
 			Name:  "quiet,q",
 			Usage: "quiet; Show less output",
-			Value: "",
 		},
 		cli.BoolFlag{
 			Name:  "J",
@@ -70,6 +93,10 @@ func main() {
 	app.Name = "gosping"
 	app.Version = "0.0.1"
 	app.Usage = "Get some SMTP statistics"
-	app.ArgsUsage = "x@y.z [@server]"
+	app.Action = run
 	app.Run(os.Args)
+}
+
+func run(c *cli.Context) {
+	fmt.Printf("Debug is set to %t\n", c.Bool("debug"))
 }
