@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/codegangsta/cli"
 	"os"
+	//	"reflect"
 )
 
 var (
@@ -98,5 +99,21 @@ func main() {
 }
 
 func run(c *cli.Context) {
-	fmt.Printf("Debug is set to %t\n", c.Bool("debug"))
+	// our arguments shoutl be in the form x@x.z [@a.b]
+	myArgs := c.Args()
+	if len(myArgs) > 1 {
+		if myArgs[1][:1] != "@" {
+			fmt.Println("Error!")
+		} else {
+			mxServer := myArgs[1][1:]
+			targetAddress := myArgs[0]
+			fmt.Println(mxServer)
+			fmt.Println(targetAddress)
+		}
+	} else {
+		targetAddress := myArgs[0]
+		fmt.Println(targetAddress)
+		fmt.Println(myArgs)
+	}
+
 }
