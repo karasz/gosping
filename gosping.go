@@ -3,8 +3,11 @@ package main
 import (
 	"fmt"
 	"github.com/codegangsta/cli"
+	"net"
+	"net/smtp"
 	"os"
-	//	"reflect"
+	"strings"
+	"time"
 )
 
 var (
@@ -100,20 +103,43 @@ func main() {
 
 func run(c *cli.Context) {
 	// our arguments shoutl be in the form x@x.z [@a.b]
+	var mxServer string
+	var targetAddress string
 	myArgs := c.Args()
 	if len(myArgs) > 1 {
 		if myArgs[1][:1] != "@" {
 			fmt.Println("Error!")
 		} else {
-			mxServer := myArgs[1][1:]
-			targetAddress := myArgs[0]
+			mxServer = myArgs[1][1:]
+			targetAddress = myArgs[0]
 			fmt.Println(mxServer)
 			fmt.Println(targetAddress)
 		}
 	} else {
-		targetAddress := myArgs[0]
+		targetAddress = myArgs[0]
+		mxServer = resolvmx(strings.SplitAfter(targetAddress, "@")[1])
+		fmt.Println(mxServer)
 		fmt.Println(targetAddress)
-		fmt.Println(myArgs)
 	}
+	a, b := connect(mxServer)
+	fmt.Println(a, b/int64(time.Millisecond))
 
+}
+
+func connect(target string) (string, int64) {
+	str := "Connect to " + target
+	begin := time.Now().UnixNano()
+	_, err := smtp.Dial(target + ":25")
+	if err != nil {
+		panic(err)
+	}
+	nanoduration := time.Now().UnixNano() - begin
+	return str, nanoduration
+}
+func resolvmx(target string) string {
+	mxRecord, err := net.LookupMX(target)
+	if err != nil {
+		panic(err)
+	}
+	return mxRecord[0].Host
 }
