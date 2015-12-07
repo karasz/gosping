@@ -102,28 +102,43 @@ func main() {
 }
 
 func run(c *cli.Context) {
-	// our arguments shoutl be in the form x@x.z [@a.b]
 	var mxServer string
 	var targetAddress string
+	var ok bool
+	targetAddress, mxServer, ok = getdestination(c)
+	if ok != true {
+		fmt.Printf("Error %s occured \n", ok)
+	} else {
+		fmt.Printf("Address is %s , server is %s \n", targetAddress, mxServer)
+	}
+}
+
+func getdestination(c *cli.Context) (string, string, bool) {
+	var mxServer string
+	var targetAddress string
+	var ok bool
 	myArgs := c.Args()
 	if len(myArgs) > 1 {
 		if myArgs[1][:1] != "@" {
-			fmt.Println("Error!")
+			mxServer = ""
+			targetAddress = ""
+			ok = false
 		} else {
 			mxServer = myArgs[1][1:]
 			targetAddress = myArgs[0]
-			fmt.Println(mxServer)
-			fmt.Println(targetAddress)
+			ok = true
 		}
 	} else {
 		targetAddress = myArgs[0]
-		mxServer = resolvmx(strings.SplitAfter(targetAddress, "@")[1])
-		fmt.Println(mxServer)
-		fmt.Println(targetAddress)
+		var err error
+		mxServer, err = resolvmx(strings.SplitAfter(targetAddress, "@")[1])
+		if err != nil {
+			mxServer = ""
+			ok = false
+		}
+		ok = true
 	}
-	a, b := connect(mxServer)
-	fmt.Println(a, b/int64(time.Millisecond))
-
+	return targetAddress, mxServer, ok
 }
 
 func connect(target string) (string, int64) {
@@ -136,10 +151,7 @@ func connect(target string) (string, int64) {
 	nanoduration := time.Now().UnixNano() - begin
 	return str, nanoduration
 }
-func resolvmx(target string) string {
+func resolvmx(target string) (string, error) {
 	mxRecord, err := net.LookupMX(target)
-	if err != nil {
-		panic(err)
-	}
-	return mxRecord[0].Host
+	return mxRecord[0].Host, err
 }
