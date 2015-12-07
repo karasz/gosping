@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/smtp"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -102,14 +103,19 @@ func main() {
 }
 
 func run(c *cli.Context) {
-	var mxServer string
-	var targetAddress string
-	var ok bool
-	targetAddress, mxServer, ok = getdestination(c)
+	targetAddress, mxServer, ok := getdestination(c)
 	if ok != true {
 		fmt.Printf("Error %s occured \n", ok)
 	} else {
 		fmt.Printf("Address is %s , server is %s \n", targetAddress, mxServer)
+	}
+	connecttarget := mxServer + ":" + strconv.Itoa(c.Int("port"))
+	fmt.Println(connecttarget)
+	_, _, err := connect(connecttarget)
+	if err != nil {
+		fmt.Println("Outch!")
+	} else {
+		fmt.Println("Success.")
 	}
 }
 
@@ -141,15 +147,11 @@ func getdestination(c *cli.Context) (string, string, bool) {
 	return targetAddress, mxServer, ok
 }
 
-func connect(target string) (string, int64) {
-	str := "Connect to " + target
+func connect(target string) (*smtp.Client, int64, error) {
 	begin := time.Now().UnixNano()
-	_, err := smtp.Dial(target + ":25")
-	if err != nil {
-		panic(err)
-	}
+	client, err := smtp.Dial(target)
 	nanoduration := time.Now().UnixNano() - begin
-	return str, nanoduration
+	return client, nanoduration, err
 }
 func resolvmx(target string) (string, error) {
 	mxRecord, err := net.LookupMX(target)
