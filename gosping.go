@@ -34,7 +34,32 @@ the recipient domain's MX record, falling back on A/AAAA records.
 `
 )
 
+type Stats struct {
+	min, avg, max float64
+}
+
+func (st *Stats) add(number float64, seq float64) {
+	/* calculate average from last average, current number to add and
+	   the number of elements that existed initialy
+	*/
+	st.avg = (number + (seq-1)*st.avg) / (seq)
+	switch {
+	case st.min > number:
+		st.min = number
+	case st.max < number:
+		st.max = number
+	}
+}
 func main() {
+	/*	connectStats := new(Stats)
+		bannerStats := new(Stats)
+		heloStats := new(Stats)
+		mailfromStats := new(Stats)
+		rcpttoStats := new(Stats)
+		dataStats := new(Stats)
+		datasentStats := new(Stats)
+		quitStats := new(Stats)
+	*/
 	cli.AppHelpTemplate = appHelpTemplate
 	app := cli.NewApp()
 	app.Flags = []cli.Flag{
@@ -120,6 +145,13 @@ func run(c *cli.Context) {
 	} else {
 		fmt.Println("Success.")
 	}
+	testStructs()
+}
+
+func testStructs() {
+	myStats := Stats{1.00, 2.00, 3.00}
+	myStats.add(4.00, 4.00)
+	fmt.Println(myStats)
 }
 
 func getdestination(c *cli.Context) (string, string, bool) {
