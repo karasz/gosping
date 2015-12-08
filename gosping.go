@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/codegangsta/cli"
 	"net"
-	"net/smtp"
+	//	"net/smtp"
 	"os"
 	"strconv"
 	"strings"
@@ -111,7 +111,10 @@ func run(c *cli.Context) {
 	}
 	connecttarget := mxServer + ":" + strconv.Itoa(c.Int("port"))
 	fmt.Println(connecttarget)
-	_, _, err := connect(connecttarget)
+	conn, tm, err := connect(connecttarget)
+	conn.Close()
+	fmt.Println(tm / 1000000)
+
 	if err != nil {
 		fmt.Println("Outch!")
 	} else {
@@ -147,11 +150,11 @@ func getdestination(c *cli.Context) (string, string, bool) {
 	return targetAddress, mxServer, ok
 }
 
-func connect(target string) (*smtp.Client, int64, error) {
+func connect(target string) (net.Conn, int64, error) {
 	begin := time.Now().UnixNano()
-	client, err := smtp.Dial(target)
+	conn, err := net.Dial("tcp", target)
 	nanoduration := time.Now().UnixNano() - begin
-	return client, nanoduration, err
+	return conn, nanoduration, err
 }
 func resolvmx(target string) (string, error) {
 	mxRecord, err := net.LookupMX(target)
