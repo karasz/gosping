@@ -107,7 +107,7 @@ func run(c *cli.Context) {
 	if ok != true {
 		fmt.Printf("Error %s occured \n", ok)
 	} else {
-		fmt.Printf("Address is %s , server is %s \n", targetAddress, mxServer)
+		fmt.Printf("Address is %s , server is %s. \n", targetAddress, mxServer)
 	}
 	connecttarget := mxServer + ":" + strconv.Itoa(c.Int("port"))
 	fmt.Println(connecttarget)
@@ -155,5 +155,6 @@ func connect(target string) (*smtp.Client, int64, error) {
 }
 func resolvmx(target string) (string, error) {
 	mxRecord, err := net.LookupMX(target)
-	return mxRecord[0].Host, err
+	// we don't want the last dot in the host (it does not hurt to have it though)
+	return mxRecord[0].Host[0 : len(mxRecord[0].Host)-1], err
 }
