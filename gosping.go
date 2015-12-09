@@ -138,13 +138,15 @@ func run(c *cli.Context) {
 	connecttarget := mxServer + ":" + strconv.Itoa(c.Int("port"))
 	fmt.Println(connecttarget)
 	for i := 1; i <= c.Int("count"); i++ {
-		conn, tm, err := connect(connecttarget)
-		timeval := float64(0)
+		smtp_init := time.Now().UnixNano()
+		conn, err := connect(connecttarget)
+		conntime := time.Now().UnixNano()
+		conn_duration := float64(0)
 		if err == nil {
-			timeval = float64(tm / int64(time.Millisecond))
+			conn_duration = float64((conntime - smtp_init) / int64(time.Millisecond))
 		}
 		conn.Close()
-		connectStats.add(timeval, float64(i))
+		connectStats.add(conn_duration, float64(i))
 		time.Sleep(sleep)
 	}
 	fmt.Println(connectStats)
@@ -178,11 +180,9 @@ func getdestination(c *cli.Context) (string, string, bool) {
 	return targetAddress, mxServer, ok
 }
 
-func connect(target string) (net.Conn, int64, error) {
-	begin := time.Now().UnixNano()
+func connect(target string) (net.Conn, error) {
 	conn, err := net.Dial("tcp", target)
-	nanoduration := time.Now().UnixNano() - begin
-	return conn, nanoduration, err
+	return conn, err
 }
 func resolvmx(target string) (string, error) {
 	mxRecord, err := net.LookupMX(target)
