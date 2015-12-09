@@ -128,6 +128,7 @@ func main() {
 }
 
 func run(c *cli.Context) {
+	sleep := time.Duration(c.Int("wait")) * time.Millisecond
 	targetAddress, mxServer, ok := getdestination(c)
 	if ok != true {
 		fmt.Printf("Error %s occured \n", ok)
@@ -144,6 +145,7 @@ func run(c *cli.Context) {
 		}
 		conn.Close()
 		connectStats.add(timeval, float64(i))
+		time.Sleep(sleep)
 	}
 	fmt.Println(connectStats)
 }
