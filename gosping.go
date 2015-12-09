@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"github.com/codegangsta/cli"
 	"net"
@@ -139,17 +140,29 @@ func run(c *cli.Context) {
 	fmt.Println(connecttarget)
 	for i := 1; i <= c.Int("count"); i++ {
 		smtp_init := time.Now().UnixNano()
-		conn, err := connect(connecttarget)
-		conntime := time.Now().UnixNano()
 		conn_duration := float64(0)
-		if err == nil {
+		ban_duration := float64(0)
+
+		//connection
+		conn, conn_err := connect(connecttarget)
+		conntime := time.Now().UnixNano()
+		if conn_err == nil {
 			conn_duration = float64((conntime - smtp_init) / int64(time.Millisecond))
 		}
-		conn.Close()
 		connectStats.add(conn_duration, float64(i))
+
+		//baner
+		ban_str, ban_err := readSMTPLine(conn)
+		bantime := time.Now().UnixNano()
+		if ban_err == nil && ban_str == "220" {
+			ban_duration = float64((bantime - conntime) / int64(time.Millisecond))
+		}
+		bannerStats.add(ban_duration, float64(i))
+		conn.Close()
 		time.Sleep(sleep)
 	}
 	fmt.Println(connectStats)
+	fmt.Println(bannerStats)
 }
 
 func getdestination(c *cli.Context) (string, string, bool) {
@@ -188,4 +201,11 @@ func resolvmx(target string) (string, error) {
 	mxRecord, err := net.LookupMX(target)
 	// we don't want the last dot in the host (it does not hurt to have it though)
 	return mxRecord[0].Host[0 : len(mxRecord[0].Host)-1], err
+}
+func readSMTPLine(conn net.Conn) (string, error) {
+	message, err := bufio.NewReader(conn).ReadString('\n')
+	if err != nil {
+		return "", err
+	}
+	return message[0:3], err
 }
