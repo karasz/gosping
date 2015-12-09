@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/codegangsta/cli"
 	"net"
-	//	"net/smtp"
 	"os"
 	"strconv"
 	"strings"
@@ -38,28 +37,29 @@ type Stats struct {
 	min, avg, max float64
 }
 
+var connectStats, bannerStats, heloStats, mailfromStats, rcpttoStats, dataStats, datasentStats, quitStats Stats
+
 func (st *Stats) add(number float64, seq float64) {
-	/* calculate average from last average, current number to add and
-	   the number of elements that existed initialy
-	*/
-	st.avg = (number + (seq-1)*st.avg) / (seq)
-	switch {
-	case st.min > number:
+	number = float64(int(number*100)) / 100
+	if seq > float64(1) {
+		/* calculate average from last average, current number to add and
+		   the number of elements that existed initialy
+		*/
+		val := (number + (seq-1)*st.avg) / (seq)
+		st.avg = float64(int(val*100)) / 100
+		switch {
+		case st.min > number:
+			st.min = number
+		case st.max < number:
+			st.max = number
+		}
+	} else {
 		st.min = number
-	case st.max < number:
+		st.avg = number
 		st.max = number
 	}
 }
 func main() {
-	/*	connectStats := new(Stats)
-		bannerStats := new(Stats)
-		heloStats := new(Stats)
-		mailfromStats := new(Stats)
-		rcpttoStats := new(Stats)
-		dataStats := new(Stats)
-		datasentStats := new(Stats)
-		quitStats := new(Stats)
-	*/
 	cli.AppHelpTemplate = appHelpTemplate
 	app := cli.NewApp()
 	app.Flags = []cli.Flag{
@@ -80,7 +80,7 @@ func main() {
 		cli.IntFlag{
 			Name:  "count,c",
 			Usage: "Number on messages [default: 3]",
-			Value: 3,
+			Value: 10,
 		},
 		cli.IntFlag{
 			Name:  "parallel, P",
@@ -136,22 +136,16 @@ func run(c *cli.Context) {
 	}
 	connecttarget := mxServer + ":" + strconv.Itoa(c.Int("port"))
 	fmt.Println(connecttarget)
-	conn, tm, err := connect(connecttarget)
-	conn.Close()
-	fmt.Println(tm / 1000000)
-
-	if err != nil {
-		fmt.Println("Outch!")
-	} else {
-		fmt.Println("Success.")
+	for i := 1; i <= c.Int("count"); i++ {
+		conn, tm, err := connect(connecttarget)
+		timeval := float64(0)
+		if err == nil {
+			timeval = float64(tm / int64(time.Millisecond))
+		}
+		conn.Close()
+		connectStats.add(timeval, float64(i))
 	}
-	testStructs()
-}
-
-func testStructs() {
-	myStats := Stats{1.00, 2.00, 3.00}
-	myStats.add(4.00, 4.00)
-	fmt.Println(myStats)
+	fmt.Println(connectStats)
 }
 
 func getdestination(c *cli.Context) (string, string, bool) {
