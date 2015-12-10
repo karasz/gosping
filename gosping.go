@@ -142,6 +142,7 @@ func run(c *cli.Context) {
 		smtp_init := time.Now().UnixNano()
 		conn_duration := float64(0)
 		ban_duration := float64(0)
+		helo_duration := float64(0)
 
 		//connection
 		conn, conn_err := connect(connecttarget)
@@ -158,11 +159,24 @@ func run(c *cli.Context) {
 			ban_duration = float64((bantime - conntime) / int64(time.Millisecond))
 		}
 		bannerStats.add(ban_duration, float64(i))
+
+		//helo
+		msg := "HELO " + c.String("helo") + "\r\n"
+		helo_err := writeSMTP(conn, msg)
+		if helo_err == nil {
+			helo_str, _ := readSMTPLine(conn)
+			if helo_str == "250" {
+				helotime := time.Now().UnixNano()
+				helo_duration = float64((helotime - bantime) / int64(time.Millisecond))
+			}
+			heloStats.add(helo_duration, float64(i))
+		}
 		conn.Close()
 		time.Sleep(sleep)
 	}
 	fmt.Println(connectStats)
 	fmt.Println(bannerStats)
+	fmt.Println(heloStats)
 }
 
 func getdestination(c *cli.Context) (string, string, bool) {
@@ -197,15 +211,23 @@ func connect(target string) (net.Conn, error) {
 	conn, err := net.Dial("tcp", target)
 	return conn, err
 }
+
 func resolvmx(target string) (string, error) {
 	mxRecord, err := net.LookupMX(target)
 	// we don't want the last dot in the host (it does not hurt to have it though)
 	return mxRecord[0].Host[0 : len(mxRecord[0].Host)-1], err
 }
+
 func readSMTPLine(conn net.Conn) (string, error) {
 	message, err := bufio.NewReader(conn).ReadString('\n')
 	if err != nil {
 		return "", err
 	}
 	return message[0:3], err
+}
+
+func writeSMTP(conn net.Conn, message string) error {
+	// we just write the message and return the error, message content is not our job
+	_, err := fmt.Fprintf(conn, message)
+	return err
 }
