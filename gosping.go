@@ -129,16 +129,20 @@ func main() {
 }
 
 func run(c *cli.Context) {
+	//get the globals from context so we just parse trhem once
 	sleep := time.Duration(c.Int("wait")) * time.Millisecond
+	seqs := c.Int("count")
+
 	targetAddress, mxServer, err := getdestination(c)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(127)
 	}
+
 	connecttarget := mxServer + ":" + strconv.Itoa(c.Int("port"))
-	fmt.Println(connecttarget)
-	fmt.Println(targetAddress)
-	for i := 1; i <= c.Int("count"); i++ {
+	fmt.Printf("PING %s (%s) with %v sequences and waiting %v between. \n", targetAddress, connecttarget, seqs, sleep)
+
+	for i := 1; i <= seqs; i++ {
 		smtp_init := time.Now().UnixNano()
 		conn_duration := float64(0)
 		ban_duration := float64(0)
@@ -174,9 +178,9 @@ func run(c *cli.Context) {
 		conn.Close()
 		time.Sleep(sleep)
 	}
-	fmt.Println(connectStats)
-	fmt.Println(bannerStats)
-	fmt.Println(heloStats)
+	printStats("connect", connectStats)
+	printStats("banner", bannerStats)
+	printStats("helo", heloStats)
 }
 
 func getdestination(c *cli.Context) (string, string, error) {
@@ -225,5 +229,10 @@ func readSMTPLine(conn net.Conn) (string, error) {
 func writeSMTP(conn net.Conn, message string) error {
 	// we just write the message and return the error, message content is not our job
 	_, err := fmt.Fprintf(conn, message)
+	return err
+}
+
+func printStats(name string, st Stats) error {
+	_, err := fmt.Fprintf(os.Stdout, "%v min/avg/max = %.2f/%.2f/%.2f ms \n", name, st.min, st.avg, st.max)
 	return err
 }
