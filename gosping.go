@@ -130,14 +130,14 @@ func main() {
 
 func run(c *cli.Context) {
 	sleep := time.Duration(c.Int("wait")) * time.Millisecond
-	targetAddress, mxServer, ok := getdestination(c)
-	if ok != true {
-		fmt.Printf("Error %s occured \n", ok)
-	} else {
-		fmt.Printf("Address is %s , server is %s. \n", targetAddress, mxServer)
+	targetAddress, mxServer, err := getdestination(c)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(127)
 	}
 	connecttarget := mxServer + ":" + strconv.Itoa(c.Int("port"))
 	fmt.Println(connecttarget)
+	fmt.Println(targetAddress)
 	for i := 1; i <= c.Int("count"); i++ {
 		smtp_init := time.Now().UnixNano()
 		conn_duration := float64(0)
@@ -179,32 +179,28 @@ func run(c *cli.Context) {
 	fmt.Println(heloStats)
 }
 
-func getdestination(c *cli.Context) (string, string, bool) {
+func getdestination(c *cli.Context) (string, string, error) {
 	var mxServer string
 	var targetAddress string
-	var ok bool
+	var err error
 	myArgs := c.Args()
 	if len(myArgs) > 1 {
 		if myArgs[1][:1] != "@" {
 			mxServer = ""
 			targetAddress = ""
-			ok = false
+			err = fmt.Errorf("Server argument should be like \"@server\" %q provided", myArgs[1])
 		} else {
 			mxServer = myArgs[1][1:]
 			targetAddress = myArgs[0]
-			ok = true
 		}
 	} else {
 		targetAddress = myArgs[0]
-		var err error
 		mxServer, err = resolvmx(strings.SplitAfter(targetAddress, "@")[1])
 		if err != nil {
 			mxServer = ""
-			ok = false
 		}
-		ok = true
 	}
-	return targetAddress, mxServer, ok
+	return targetAddress, mxServer, err
 }
 
 func connect(target string) (net.Conn, error) {
