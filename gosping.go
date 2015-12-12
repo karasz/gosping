@@ -69,7 +69,7 @@ func main() {
 		cli.BoolFlag{Name: "debug,d", Usage: "Show more debugging"},
 		cli.IntFlag{Name: "port,p", Usage: "Which TCP port to use [default: 25]", Value: 25},
 		cli.IntFlag{Name: "wait,w", Usage: "Time to wait between PINGs [default: 1000] (ms)", Value: 1000},
-		cli.IntFlag{Name: "count,c", Usage: "Number on messages [default: 3]", Value: 10},
+		cli.IntFlag{Name: "count,c", Usage: "Number on messages [default: 10]", Value: 10},
 		cli.IntFlag{Name: "parallel, P", Usage: "Number of parallel workers [default 1]", Value: 1},
 		cli.IntFlag{Name: "size,s", Usage: "Message size in kilobytes [default: 10] (KiB)", Value: 10},
 		cli.StringFlag{Name: "file,f", Usage: "Send message file (RFC 822)", Value: ""},
