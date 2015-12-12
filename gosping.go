@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -32,6 +33,7 @@ OPTIONS:
 If no @server is specified, {{.Name}} will try to find
 the recipient domain's MX record, falling back on A/AAAA records.
 `
+	appDebug = false
 )
 
 type Stats struct {
@@ -85,31 +87,44 @@ func main() {
 }
 
 func run(c *cli.Context) {
-	//get the globals from context so we just parse trhem once
-	sleep := time.Duration(c.Int("wait")) * time.Millisecond
-	seqs := c.Int("count")
-
+	appDebug = c.Bool("debug")
 	targetAddress, mxServer, err := getdestination(c)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(127)
 	}
-
+	jobs := c.Int("parallel")
 	connecttarget := mxServer + ":" + strconv.Itoa(c.Int("port"))
-	fmt.Printf("PING %s (%s) with %v sequences and waiting %v between. \n", targetAddress, connecttarget, seqs, sleep)
+	fmt.Printf("PING %s (%s) with %v sequence(s),  waiting %v between, using %v gorutine(s). \n", targetAddress, connecttarget, c.Int("count"), (time.Duration(c.Int("wait")) * time.Millisecond), jobs)
 
-	for i := 1; i <= seqs; i++ {
+	var wg sync.WaitGroup
+	wg.Add(jobs)
+	// let's go berserk
+	for i := 1; i < jobs+1; i++ {
+		go do(c, connecttarget, &wg)
+	}
+	wg.Wait()
+}
+
+func do(c *cli.Context, d string, wg *sync.WaitGroup) {
+	//get the globals from context so we just parse them once
+	sleep := time.Duration(c.Int("wait")) * time.Millisecond
+	seqs := c.Int("count")
+
+	for i := 1; i < seqs+1; i++ {
 		smtp_init := time.Now().UnixNano()
 		conn_duration := float64(0)
 		ban_duration := float64(0)
 		helo_duration := float64(0)
 
 		//connection
-		conn, conn_err := connect(connecttarget)
+		conn, conn_err := connect(d)
 		conntime := time.Now().UnixNano()
 		if conn_err == nil {
 			conn_duration = float64((conntime - smtp_init) / int64(time.Millisecond))
+			fmt.Println((conntime - smtp_init), float64(i))
 		}
+		fmt.Println(conn_duration, float64(i))
 		connectStats.add(conn_duration, float64(i))
 
 		//baner
@@ -137,6 +152,7 @@ func run(c *cli.Context) {
 	printStats("connect", connectStats)
 	printStats("banner", bannerStats)
 	printStats("helo", heloStats)
+	wg.Done()
 }
 
 func getdestination(c *cli.Context) (string, string, error) {
@@ -144,6 +160,7 @@ func getdestination(c *cli.Context) (string, string, error) {
 	var targetAddress string
 	var err error
 	myArgs := c.Args()
+	debugprint("Entering getdestination \n")
 	if len(myArgs) > 1 {
 		if myArgs[1][:1] != "@" {
 			mxServer = ""
@@ -160,11 +177,16 @@ func getdestination(c *cli.Context) (string, string, error) {
 			mxServer = ""
 		}
 	}
+	debugprint(fmt.Sprintf("Target address is %s, mxServer is %s, error is %v \n", targetAddress, mxServer, err))
+
 	return targetAddress, mxServer, err
 }
 
 func connect(target string) (net.Conn, error) {
+	debugprint("Entering connect \n")
+
 	conn, err := net.Dial("tcp", target)
+	debugprint("We connected, or errored \n")
 	return conn, err
 }
 
@@ -191,4 +213,10 @@ func writeSMTP(conn net.Conn, message string) error {
 func printStats(name string, st Stats) error {
 	_, err := fmt.Fprintf(os.Stdout, "%v min/avg/max = %.2f/%.2f/%.2f ms \n", name, st.min, st.avg, st.max)
 	return err
+}
+
+func debugprint(str string) {
+	if appDebug {
+		fmt.Fprintf(os.Stdout, str)
+	}
 }
