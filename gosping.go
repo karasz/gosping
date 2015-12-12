@@ -37,30 +37,21 @@ the recipient domain's MX record, falling back on A/AAAA records.
 )
 
 type Stats struct {
-	min, avg, max float64
+	min, max, sum, num float64
 }
 
 var connectStats, bannerStats, heloStats, mailfromStats, rcpttoStats, dataStats, datasentStats, quitStats Stats
 
-func (st *Stats) add(number float64, seq float64) {
+func (st *Stats) add(number float64) {
 	number = float64(int(number*100)) / 100
-	if seq > float64(1) {
-		/* calculate average from last average, current number to add and
-		   the number of elements that existed initialy
-		*/
-		val := (number + (seq-1)*st.avg) / (seq)
-		st.avg = float64(int(val*100)) / 100
-		switch {
-		case st.min > number:
-			st.min = number
-		case st.max < number:
-			st.max = number
-		}
-	} else {
+	switch {
+	case st.min > number || st.min == 0.0:
 		st.min = number
-		st.avg = number
+	case st.max < number:
 		st.max = number
 	}
+	st.sum += number
+	st.num++
 }
 func main() {
 	cli.AppHelpTemplate = appHelpTemplate
@@ -128,7 +119,7 @@ func do(c *cli.Context, d string, wg *sync.WaitGroup) {
 			conn_duration = float64((conntime - smtp_init) / int64(time.Millisecond))
 		}
 		//for seq x we have x+1 numbers in the stat
-		connectStats.add(conn_duration, float64(i+1))
+		connectStats.add(conn_duration)
 
 		//baner
 		ban_str, ban_err := readSMTPLine(conn)
@@ -136,7 +127,7 @@ func do(c *cli.Context, d string, wg *sync.WaitGroup) {
 		if ban_err == nil && ban_str == "220" {
 			ban_duration = float64((bantime - conntime) / int64(time.Millisecond))
 		}
-		bannerStats.add(ban_duration, float64(i+1))
+		bannerStats.add(ban_duration)
 
 		//helo
 		msg := "HELO " + c.String("helo") + "\r\n"
@@ -147,7 +138,7 @@ func do(c *cli.Context, d string, wg *sync.WaitGroup) {
 				helotime := time.Now().UnixNano()
 				helo_duration = float64((helotime - bantime) / int64(time.Millisecond))
 			}
-			heloStats.add(helo_duration, float64(i+1))
+			heloStats.add(helo_duration)
 		}
 		conn.Close()
 		time.Sleep(sleep)
@@ -211,7 +202,7 @@ func writeSMTP(conn net.Conn, message string) error {
 }
 
 func printStats(name string, st Stats) error {
-	_, err := fmt.Fprintf(os.Stdout, "%v min/avg/max = %.2f/%.2f/%.2f ms \n", name, st.min, st.avg, st.max)
+	_, err := fmt.Fprintf(os.Stdout, "%v min/avg/max = %.2f/%.2f/%.2f ms \n", name, st.min, st.sum/st.num, st.max)
 	return err
 }
 
