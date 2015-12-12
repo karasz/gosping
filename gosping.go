@@ -13,6 +13,7 @@ import (
 )
 
 var (
+	appDebug        = false
 	appName         = "gosping"
 	appHelpTemplate = `
 NAME:
@@ -33,7 +34,6 @@ OPTIONS:
 If no @server is specified, {{.Name}} will try to find
 the recipient domain's MX record, falling back on A/AAAA records.
 `
-	appDebug = false
 )
 
 type Stats struct {
@@ -95,15 +95,19 @@ func run(c *cli.Context) {
 	}
 	jobs := c.Int("parallel")
 	connecttarget := mxServer + ":" + strconv.Itoa(c.Int("port"))
-	fmt.Printf("PING %s (%s) with %v sequence(s),  waiting %v between, using %v gorutine(s). \n", targetAddress, connecttarget, c.Int("count"), (time.Duration(c.Int("wait")) * time.Millisecond), jobs)
+	fmt.Printf("PING %s (%s) with %v sequence(s), waiting %v between, using %v gorutine(s). \n", targetAddress, connecttarget, c.Int("count"), (time.Duration(c.Int("wait")) * time.Millisecond), jobs)
 
 	var wg sync.WaitGroup
 	wg.Add(jobs)
 	// let's go berserk
-	for i := 1; i < jobs+1; i++ {
+	for i := 0; i < jobs; i++ {
 		go do(c, connecttarget, &wg)
 	}
 	wg.Wait()
+	printStats("connect", connectStats)
+	printStats("banner", bannerStats)
+	printStats("helo", heloStats)
+
 }
 
 func do(c *cli.Context, d string, wg *sync.WaitGroup) {
@@ -111,7 +115,7 @@ func do(c *cli.Context, d string, wg *sync.WaitGroup) {
 	sleep := time.Duration(c.Int("wait")) * time.Millisecond
 	seqs := c.Int("count")
 
-	for i := 1; i < seqs+1; i++ {
+	for i := 0; i < seqs; i++ {
 		smtp_init := time.Now().UnixNano()
 		conn_duration := float64(0)
 		ban_duration := float64(0)
@@ -122,10 +126,9 @@ func do(c *cli.Context, d string, wg *sync.WaitGroup) {
 		conntime := time.Now().UnixNano()
 		if conn_err == nil {
 			conn_duration = float64((conntime - smtp_init) / int64(time.Millisecond))
-			fmt.Println((conntime - smtp_init), float64(i))
 		}
-		fmt.Println(conn_duration, float64(i))
-		connectStats.add(conn_duration, float64(i))
+		//for seq x we have x+1 numbers in the stat
+		connectStats.add(conn_duration, float64(i+1))
 
 		//baner
 		ban_str, ban_err := readSMTPLine(conn)
@@ -133,7 +136,7 @@ func do(c *cli.Context, d string, wg *sync.WaitGroup) {
 		if ban_err == nil && ban_str == "220" {
 			ban_duration = float64((bantime - conntime) / int64(time.Millisecond))
 		}
-		bannerStats.add(ban_duration, float64(i))
+		bannerStats.add(ban_duration, float64(i+1))
 
 		//helo
 		msg := "HELO " + c.String("helo") + "\r\n"
@@ -144,14 +147,11 @@ func do(c *cli.Context, d string, wg *sync.WaitGroup) {
 				helotime := time.Now().UnixNano()
 				helo_duration = float64((helotime - bantime) / int64(time.Millisecond))
 			}
-			heloStats.add(helo_duration, float64(i))
+			heloStats.add(helo_duration, float64(i+1))
 		}
 		conn.Close()
 		time.Sleep(sleep)
 	}
-	printStats("connect", connectStats)
-	printStats("banner", bannerStats)
-	printStats("helo", heloStats)
 	wg.Done()
 }
 
