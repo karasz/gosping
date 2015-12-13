@@ -228,6 +228,10 @@ func getdestination(c *cli.Context) (string, string, error) {
 	var targetAddress string
 	var err error
 	myArgs := c.Args()
+	if len(myArgs) == 0 {
+		cli.ShowAppHelp(c)
+		os.Exit(130)
+	}
 	debugprint("Entering getdestination \n")
 	if len(myArgs) > 1 {
 		if myArgs[1][:1] != "@" {
