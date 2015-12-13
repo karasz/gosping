@@ -98,21 +98,23 @@ func run(c *cli.Context) {
 	wg.Add(jobs)
 	// let's go berserk
 	for i := 0; i < jobs; i++ {
-		go do(c, connecttarget, &wg)
+		go do(c, connecttarget, targetAddress, &wg)
 	}
 	wg.Wait()
 	printStats("connect", connectStats)
 	printStats("banner", bannerStats)
 	printStats("helo", heloStats)
 	printStats("mailfrom", mailfromStats)
+	printStats("rcptto", rcpttoStats)
 
 }
 
-func do(c *cli.Context, d string, wg *sync.WaitGroup) {
+func do(c *cli.Context, d string, t string, wg *sync.WaitGroup) {
 	//get the globals from context so we just parse them once
 	sleep := time.Duration(c.Int("wait")) * time.Millisecond
 	seqs := c.Int("count")
 	smtpFrom := c.String("sender")
+	smtpRCPT := t
 
 	for i := 0; i < seqs; i++ {
 		smtp_init := time.Now().UnixNano()
@@ -120,6 +122,7 @@ func do(c *cli.Context, d string, wg *sync.WaitGroup) {
 		ban_duration := float64(0)
 		helo_duration := float64(0)
 		mailfrom_duration := float64(0)
+		rcptto_duration := float64(0)
 
 		//connection
 		conn, conn_err := connect(d)
@@ -155,13 +158,24 @@ func do(c *cli.Context, d string, wg *sync.WaitGroup) {
 		//mail from: <address>
 		msg = "MAIL FROM: <" + smtpFrom + ">\r\n"
 		ok, part, err = gossip(conn, msg, "250")
+		mailfromtime := time.Now().UnixNano()
 		if ok {
-			mailfromtime := time.Now().UnixNano()
 			mailfrom_duration = float64((mailfromtime - helotime) / int64(time.Millisecond))
 		} else {
 			fmt.Printf("Error %v occured in gossip at %v part", err, part)
 		}
 		mailfromStats.add(mailfrom_duration)
+
+		//rcpt to: <address>
+		msg = "RCPT TO: <" + smtpRCPT + ">\r\n"
+		ok, part, err = gossip(conn, msg, "250")
+		rcpttotime := time.Now().UnixNano()
+		if ok {
+			rcptto_duration = float64((rcpttotime - mailfromtime) / int64(time.Millisecond))
+		} else {
+			fmt.Printf("Error %v occured in gossip at %v part", err, part)
+		}
+		rcpttoStats.add(rcptto_duration)
 
 		conn.Close()
 		time.Sleep(sleep)
