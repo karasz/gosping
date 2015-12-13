@@ -131,15 +131,14 @@ func do(c *cli.Context, d string, wg *sync.WaitGroup) {
 
 		//helo
 		msg := "HELO " + c.String("helo") + "\r\n"
-		helo_err := writeSMTP(conn, msg)
-		if helo_err == nil {
-			helo_str, _ := readSMTPLine(conn)
-			if helo_str == "250" {
-				helotime := time.Now().UnixNano()
-				helo_duration = float64((helotime - bantime) / int64(time.Millisecond))
-			}
-			heloStats.add(helo_duration)
+		ok, part, err := gossip(conn, msg, "250")
+		if ok {
+			helotime := time.Now().UnixNano()
+			helo_duration = float64((helotime - bantime) / int64(time.Millisecond))
+		} else {
+			fmt.Printf("Error %v occured in gossip at %v part", err, part)
 		}
+		heloStats.add(helo_duration)
 		conn.Close()
 		time.Sleep(sleep)
 	}
@@ -209,5 +208,26 @@ func printStats(name string, st Stats) error {
 func debugprint(str string) {
 	if appDebug {
 		fmt.Fprintf(os.Stdout, str)
+	}
+}
+
+func gossip(conn net.Conn, say string, hear string) (status bool, part string, err error) {
+	write_err := writeSMTP(conn, say)
+	if err != nil {
+		status := false
+		part := "write"
+		return status, part, write_err
+	}
+	ret, read_err := readSMTPLine(conn)
+	if read_err != nil {
+		status := false
+		part := "read"
+		return status, part, write_err
+	}
+	if ret == hear {
+		return true, "", nil
+	} else {
+		return false, "", nil
+
 	}
 }
