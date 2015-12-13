@@ -40,7 +40,8 @@ type Stats struct {
 	min, max, sum, num float64
 }
 
-var connectStats, bannerStats, heloStats, mailfromStats, rcpttoStats, dataStats, datasentStats, quitStats Stats
+var connectStats, bannerStats, heloStats, mailfromStats,
+	rcpttoStats, dataStats, datasentStats, quitStats Stats
 
 func (st *Stats) add(number float64) {
 	number = float64(int(number*100)) / 100
@@ -64,7 +65,8 @@ func main() {
 		cli.IntFlag{Name: "parallel, P", Usage: "Number of parallel workers [default 1]", Value: 1},
 		cli.IntFlag{Name: "size,s", Usage: "Message size in kilobytes [default: 10] (KiB)", Value: 10},
 		cli.StringFlag{Name: "file,f", Usage: "Send message file (RFC 822)", Value: ""},
-		cli.StringFlag{Name: "helo, H", Usage: "HELO domain [default: localhost.localdomain]", Value: "localhost.localdomain"},
+		cli.StringFlag{Name: "helo, H", Usage: "HELO domain [default: localhost.localdomain]",
+			Value: "localhost.localdomain"},
 		cli.StringFlag{Name: "sender, S", Usage: "sender; Sender address [default: empty]", Value: ""},
 		cli.BoolFlag{Name: "rate,r", Usage: "rate; Show message rate per second"},
 		cli.BoolTFlag{Name: "quiet,q", Usage: "quiet; Show less output"},
@@ -86,7 +88,9 @@ func run(c *cli.Context) {
 	}
 	jobs := c.Int("parallel")
 	connecttarget := mxServer + ":" + strconv.Itoa(c.Int("port"))
-	fmt.Printf("PING %s (%s) with %v sequence(s), waiting %v between, using %v gorutine(s). \n", targetAddress, connecttarget, c.Int("count"), (time.Duration(c.Int("wait")) * time.Millisecond), jobs)
+	fmt.Printf("PING %s (%s) with %v sequence(s), waiting %v between, using %v gorutine(s). \n",
+		targetAddress, connecttarget, c.Int("count"),
+		(time.Duration(c.Int("wait")) * time.Millisecond), jobs)
 
 	var wg sync.WaitGroup
 	wg.Add(jobs)
@@ -167,7 +171,8 @@ func getdestination(c *cli.Context) (string, string, error) {
 			mxServer = ""
 		}
 	}
-	debugprint(fmt.Sprintf("Target address is %s, mxServer is %s, error is %v \n", targetAddress, mxServer, err))
+	debugprint(fmt.Sprintf("Target address is %s, mxServer is %s, error is %v \n",
+		targetAddress, mxServer, err))
 
 	return targetAddress, mxServer, err
 }
@@ -201,7 +206,8 @@ func writeSMTP(conn net.Conn, message string) error {
 }
 
 func printStats(name string, st Stats) error {
-	_, err := fmt.Fprintf(os.Stdout, "%v min/avg/max = %.2f/%.2f/%.2f ms \n", name, st.min, st.sum/st.num, st.max)
+	_, err := fmt.Fprintf(os.Stdout, "%v min/avg/max = %.2f/%.2f/%.2f ms \n",
+		name, st.min, st.sum/st.num, st.max)
 	return err
 }
 
