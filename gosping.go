@@ -88,6 +88,7 @@ func run(c *cli.Context) {
 		os.Exit(127)
 	}
 	jobs := c.Int("parallel")
+
 	connecttarget := mxServer + ":" + strconv.Itoa(c.Int("port"))
 	fmt.Printf("PING %s (%s) with %v sequence(s), waiting %v between, using %v gorutine(s). \n",
 		targetAddress, connecttarget, c.Int("count"),
@@ -103,6 +104,7 @@ func run(c *cli.Context) {
 	printStats("connect", connectStats)
 	printStats("banner", bannerStats)
 	printStats("helo", heloStats)
+	printStats("mailfrom", mailfromStats)
 
 }
 
@@ -110,17 +112,22 @@ func do(c *cli.Context, d string, wg *sync.WaitGroup) {
 	//get the globals from context so we just parse them once
 	sleep := time.Duration(c.Int("wait")) * time.Millisecond
 	seqs := c.Int("count")
+	smtpFrom := c.String("sender")
 
 	for i := 0; i < seqs; i++ {
 		smtp_init := time.Now().UnixNano()
 		conn_duration := float64(0)
 		ban_duration := float64(0)
 		helo_duration := float64(0)
+		mailfrom_duration := float64(0)
 
 		//connection
 		conn, conn_err := connect(d)
 		conntime := time.Now().UnixNano()
-		if conn_err == nil {
+		if conn_err != nil {
+			fmt.Println(conn_err)
+			os.Exit(128)
+		} else {
 			conn_duration = float64((conntime - smtp_init) / int64(time.Millisecond))
 		}
 		//for seq x we have x+1 numbers in the stat
@@ -137,13 +144,25 @@ func do(c *cli.Context, d string, wg *sync.WaitGroup) {
 		//helo
 		msg := "HELO " + c.String("helo") + "\r\n"
 		ok, part, err := gossip(conn, msg, "250")
+		helotime := time.Now().UnixNano()
 		if ok {
-			helotime := time.Now().UnixNano()
 			helo_duration = float64((helotime - bantime) / int64(time.Millisecond))
 		} else {
 			fmt.Printf("Error %v occured in gossip at %v part", err, part)
 		}
 		heloStats.add(helo_duration)
+
+		//mail from: <address>
+		msg = "MAIL FROM: <" + smtpFrom + ">\r\n"
+		ok, part, err = gossip(conn, msg, "250")
+		if ok {
+			mailfromtime := time.Now().UnixNano()
+			mailfrom_duration = float64((mailfromtime - helotime) / int64(time.Millisecond))
+		} else {
+			fmt.Printf("Error %v occured in gossip at %v part", err, part)
+		}
+		mailfromStats.add(mailfrom_duration)
+
 		conn.Close()
 		time.Sleep(sleep)
 	}
@@ -221,15 +240,11 @@ func debugprint(str string) {
 func gossip(conn net.Conn, say string, hear string) (status bool, part string, err error) {
 	write_err := writeSMTP(conn, say)
 	if err != nil {
-		status := false
-		part := "write"
-		return status, part, write_err
+		return false, "write", write_err
 	}
 	ret, read_err := readSMTPLine(conn)
 	if read_err != nil {
-		status := false
-		part := "read"
-		return status, part, write_err
+		return false, "read", read_err
 	}
 	if ret == hear {
 		return true, "", nil
