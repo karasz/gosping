@@ -106,6 +106,9 @@ func run(c *cli.Context) {
 	printStats("helo", heloStats)
 	printStats("mailfrom", mailfromStats)
 	printStats("rcptto", rcpttoStats)
+	printStats("data", dataStats)
+	printStats("datasent", datasentStats)
+	printStats("quit", quitStats)
 
 }
 
@@ -115,6 +118,7 @@ func do(c *cli.Context, d string, t string, wg *sync.WaitGroup) {
 	seqs := c.Int("count")
 	smtpFrom := c.String("sender")
 	smtpRCPT := t
+	ssize := c.Int("size")
 
 	for i := 0; i < seqs; i++ {
 		smtp_init := time.Now().UnixNano()
@@ -123,6 +127,9 @@ func do(c *cli.Context, d string, t string, wg *sync.WaitGroup) {
 		helo_duration := float64(0)
 		mailfrom_duration := float64(0)
 		rcptto_duration := float64(0)
+		data_duration := float64(0)
+		datasent_duration := float64(0)
+		quit_duration := float64(0)
 
 		//connection
 		conn, conn_err := connect(d)
@@ -151,7 +158,7 @@ func do(c *cli.Context, d string, t string, wg *sync.WaitGroup) {
 		if ok {
 			helo_duration = float64((helotime - bantime) / int64(time.Millisecond))
 		} else {
-			fmt.Printf("Error %v occured in gossip at %v part", err, part)
+			fmt.Printf("Error %v occured in gossip at %v part \n", err, part)
 		}
 		heloStats.add(helo_duration)
 
@@ -162,7 +169,7 @@ func do(c *cli.Context, d string, t string, wg *sync.WaitGroup) {
 		if ok {
 			mailfrom_duration = float64((mailfromtime - helotime) / int64(time.Millisecond))
 		} else {
-			fmt.Printf("Error %v occured in gossip at %v part", err, part)
+			fmt.Printf("Error %v occured in gossip at %v part \n", err, part)
 		}
 		mailfromStats.add(mailfrom_duration)
 
@@ -173,9 +180,42 @@ func do(c *cli.Context, d string, t string, wg *sync.WaitGroup) {
 		if ok {
 			rcptto_duration = float64((rcpttotime - mailfromtime) / int64(time.Millisecond))
 		} else {
-			fmt.Printf("Error %v occured in gossip at %v part", err, part)
+			fmt.Printf("Error %v occured in gossip at %v part \n", err, part)
 		}
 		rcpttoStats.add(rcptto_duration)
+
+		//data command
+		msg = "DATA\r\n"
+		ok, part, err = gossip(conn, msg, "354")
+		datatime := time.Now().UnixNano()
+		if ok {
+			data_duration = float64((datatime - rcpttotime) / int64(time.Millisecond))
+		} else {
+			fmt.Printf("Error %v occured in gossip at %v part \n", err, part)
+		}
+		dataStats.add(data_duration)
+
+		//data data
+		data := createMail(ssize, smtpFrom, smtpRCPT)
+		ok, part, err = gossip(conn, data, "250")
+		datasenttime := time.Now().UnixNano()
+		if ok {
+			datasent_duration = float64((datasenttime - datatime) / int64(time.Millisecond))
+		} else {
+			fmt.Printf("Error %v occured in gossip at %v part \n", err, part)
+		}
+		datasentStats.add(datasent_duration)
+
+		//quit command
+		msg = "QUIT\r\n"
+		err = writeSMTP(conn, msg)
+		quittime := time.Now().UnixNano()
+		if err != nil {
+			fmt.Printf("Error %v occured in QUIT.\n", err)
+		} else {
+			quit_duration = float64((quittime - datasenttime) / int64(time.Millisecond))
+		}
+		quitStats.add(quit_duration)
 
 		conn.Close()
 		time.Sleep(sleep)
@@ -266,4 +306,18 @@ func gossip(conn net.Conn, say string, hear string) (status bool, part string, e
 		return false, "", nil
 
 	}
+}
+
+func createMail(size int, from string, to string) string {
+	data := ""
+	data += "Subject: SMTP Ping\r\n"
+	data += "From: <" + from + ">\r\n"
+	data += "To: <" + to + ">\r\n"
+	data += "\r\n"
+	for int(len(data)/1024) < size {
+		data += "AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPQQRRSSTTUUVVWWXXYYZZ" +
+			"00112233445566778899\r\n"
+	}
+	data += "\r\n.\r\n"
+	return data
 }
