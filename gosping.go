@@ -74,7 +74,7 @@ func main() {
 		cli.BoolFlag{Name: "J", Usage: "Run in jailed mode (forbid --file)"},
 	}
 	app.Name = "gosping"
-	app.Version = "0.0.1"
+	app.Version = "0.1"
 	app.Usage = "Get some SMTP statistics"
 	app.Action = run
 	app.Run(os.Args)
