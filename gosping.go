@@ -65,13 +65,11 @@ func main() {
 		cli.IntFlag{Name: "count,c", Usage: "Number on messages [default: 10]", Value: 10},
 		cli.IntFlag{Name: "parallel, P", Usage: "Number of parallel workers [default 1]", Value: 1},
 		cli.IntFlag{Name: "size,s", Usage: "Message size in kilobytes [default: 10] (KiB)", Value: 10},
-		cli.StringFlag{Name: "file,f", Usage: "Send message file (RFC 822)", Value: ""},
 		cli.StringFlag{Name: "helo, H", Usage: "HELO domain [default: localhost.localdomain]",
 			Value: "localhost.localdomain"},
 		cli.StringFlag{Name: "sender, S", Usage: "sender; Sender address [default: empty]", Value: ""},
 		cli.BoolFlag{Name: "rate,r", Usage: "rate; Show message rate per second"},
 		cli.BoolTFlag{Name: "quiet,q", Usage: "quiet; Show less output"},
-		cli.BoolFlag{Name: "J", Usage: "Run in jailed mode (forbid --file)"},
 	}
 	app.Name = "gosping"
 	app.Version = "0.1"
